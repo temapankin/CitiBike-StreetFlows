@@ -1,0 +1,24 @@
+name: citibike
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  # DB stack installed via Homebrew:
+  #   brew install postgresql@17 postgis pgrouting osm2pgrouting
+  # Python
+  - python=3.11
+  - pandas=2.2
+  - geopandas
+  - pyarrow
+  - sqlalchemy
+  - psycopg2
+  - geoalchemy2
+  - requests
+  - python-dotenv
+  - tqdm
+  - duckdb
+  - tippecanoe
+  - pip
+  - pip:
+    - osmium
+    - polyline

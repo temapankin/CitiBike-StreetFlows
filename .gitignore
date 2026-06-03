@@ -1,0 +1,37 @@
+# Credentials & workspace
+.env
+.claude/
+
+# Per-project Postgres cluster
+.pgdata/
+postgres.log
+
+# Raw & intermediate data (too large for git — re-downloadable via make data)
+data/raw/
+data/parquet/
+
+web/data/trips_timelapse.json
+
+# Makefile state stamps
+.db_loaded
+.route_done
+.clean_done
+.cscl_net_done
+.cscl_routed
+.timelapse_done
+data/raw/.download_done
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.ipynb_checkpoints/
+
+# macOS
+.DS_Store
+._*
+
+# Editors
+.vscode/
+.idea/
+*.swp

@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CitiBike NYC – Street-Network Flows</title>
+
+  <!-- MapLibre GL JS -->
+  <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
+
+  <!-- deck.gl standalone (includes luma.gl, loaders) -->
+  <script src="https://unpkg.com/deck.gl@9/dist.min.js"></script>
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #0d0d0d;
+      color: #e0e0e0;
+      font-family: "Inter", "Helvetica Neue", sans-serif;
+      font-size: 13px;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── Sidebar ── */
+    #sidebar {
+      width: 300px;
+      min-width: 300px;
+      background: #111;
+      border-right: 1px solid #222;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 18px;
+      overflow-y: auto;
+      z-index: 10;
+    }
+
+    #sidebar h1 {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.3;
+      color: #fff;
+      margin-bottom: 6px;
+    }
+
+    #sidebar .subtitle {
+      color: #888;
+      font-size: 11px;
+      margin-bottom: 16px;
+    }
+
+    #sidebar p {
+      color: #aaa;
+      line-height: 1.55;
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    #sidebar h2 {
+      font-size: 12px;
+      font-weight: 600;
+      color: #ccc;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin: 18px 0 8px;
+    }
+
+    /* ── View toggle ── */
+    .view-toggle {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 10px;
+    }
+
+    .view-btn {
+      flex: 1;
+      padding: 7px 0;
+      border-radius: 5px;
+      border: 1px solid #333;
+      background: #1a1a1a;
+      color: #888;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+
+    .view-btn.active {
+      background: #1e3a5f;
+      color: #7ec8ff;
+      border-color: #2c5f9e;
+    }
+
+    /* ── Legend ── */
+    .legend-ramp {
+      display: flex;
+      height: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      margin: 6px 0 3px;
+    }
+
+    .legend-labels {
+      display: flex;
+      justify-content: space-between;
+      color: #666;
+      font-size: 11px;
+    }
+
+    /* ── Palette switcher ── */
+    .palette-switcher {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .palette-swatch {
+      flex: 1 1 auto;
+      min-width: 0;
+      cursor: pointer;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      padding: 3px;
+      background: #1a1a1a;
+      transition: border-color 0.15s;
+    }
+
+    .palette-swatch:hover { border-color: #555; }
+    .palette-swatch.active { border-color: #7ec8ff; }
+
+    .palette-swatch .ramp {
+      display: flex;
+      height: 9px;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .palette-swatch .name {
+      display: block;
+      font-size: 9px;
+      color: #888;
+      text-align: center;
+      margin-top: 2px;
+      white-space: nowrap;
+    }
+
+    .palette-swatch.active .name { color: #7ec8ff; }
+
+    /* ── Timelapse controls ── */
+    #timelapse-controls {
+      display: none;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    #timelapse-controls.visible { display: flex; }
+
+    #time-display {
+      font-size: 14px;
+      font-weight: 600;
+      color: #7ec8ff;
+      letter-spacing: 0.04em;
+    }
+
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #time-slider {
+      flex: 1;
+      -webkit-appearance: none;
+      height: 3px;
+      border-radius: 2px;
+      background: #333;
+      outline: none;
+    }
+
+    #time-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      background: #7ec8ff;
+      cursor: pointer;
+    }
+
+    .play-btn {
+      padding: 5px 14px;
+      border-radius: 4px;
+      border: 1px solid #2c5f9e;
+      background: #1e3a5f;
+      color: #7ec8ff;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .play-btn:hover { background: #243f6a; }
+
+    /* ── Speed selector ── */
+    .speed-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: #666;
+    }
+
+    .speed-row select {
+      background: #1a1a1a;
+      border: 1px solid #333;
+      color: #aaa;
+      font-size: 11px;
+      border-radius: 3px;
+      padding: 2px 4px;
+    }
+
+    /* ── Stats chip ── */
+    .stat-chip {
+      display: inline-block;
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      padding: 4px 8px;
+      font-size: 11px;
+      color: #aaa;
+      margin: 2px 2px 2px 0;
+    }
+
+    .stat-chip span { color: #7ec8ff; font-weight: 600; }
+
+    /* ── Layer toggle ── */
+    .layer-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 10px;
+      font-size: 12px;
+      color: #888;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .layer-toggle input[type="checkbox"] {
+      accent-color: #7ec8ff;
+      width: 13px;
+      height: 13px;
+      cursor: pointer;
+    }
+
+    .layer-toggle:hover { color: #bbb; }
+
+    /* ── Timelapse status ── */
+    #tl-status {
+      font-size: 11px;
+      color: #555;
+      margin-top: 6px;
+      min-height: 14px;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      margin-top: auto;
+      padding-top: 16px;
+      border-top: 1px solid #1e1e1e;
+      font-size: 11px;
+      color: #555;
+    }
+
+    .footer a { color: #555; text-decoration: none; }
+    .footer a:hover { color: #888; text-decoration: underline; }
+
+    /* ── Map container ── */
+    #map-container {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #map { width: 100%; height: 100%; }
+
+    /* ── Tooltip ── */
+    #tooltip {
+      position: absolute;
+      pointer-events: none;
+      z-index: 100;
+      background: rgba(10, 10, 20, 0.92);
+      border: 1px solid #333;
+      border-radius: 5px;
+      padding: 8px 10px;
+      font-size: 12px;
+      color: #ddd;
+      max-width: 220px;
+      display: none;
+    }
+
+    #tooltip b { color: #7ec8ff; }
+
+    /* ── Loading overlay ── */
+    #loading {
+      position: absolute;
+      inset: 0;
+      background: rgba(13,13,13,0.85);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 200;
+      font-size: 14px;
+      color: #888;
+    }
+
+    #loading.hidden { display: none; }
+  </style>
+</head>
+<body>
+
+<!-- ── Sidebar ────────────────────────────────────────────────────────────── -->
+<div id="sidebar">
+  <h1>CitiBike NYC<br>Street-Network Flows</h1>
+  <div class="subtitle">Summer 2023 &nbsp;·&nbsp; June – August</div>
+
+  <div class="view-toggle">
+    <button class="view-btn active" id="btn-flow" onclick="setView('flow')">Overall Flows</button>
+    <button class="view-btn"        id="btn-anim" onclick="setView('timelapse')">Timelapse</button>
+  </div>
+
+  <!-- Flow source toggle (visible in flow view only) -->
+  <p id="view-desc-flow">
+    Summer 2023 CitiBike trips routed onto the street network and totalled for
+    each street segment. Line width and brightness increase with the number of
+    trips on a street, so the most-used cycling routes stand out. The scale
+    adapts to the current view: zoom into an area and its busiest streets are
+    re-graded across the full range.
+  </p>
+  <p id="view-desc-anim" style="display:none">
+    All 10.6 million summer 2023 trips, animated along the street network. The
+    clock advances at real-world pace and shows the date and time of day.
+    CitiBike records only each trip's start and end station, not the route taken;
+    the path drawn for every trip is an estimated route between its two stations
+    along the street network, not the rider's actual GPS track.
+  </p>
+
+  <!-- Timelapse controls -->
+  <div id="timelapse-controls">
+    <div id="time-display">Jun 1, 2023 &nbsp; 00:00</div>
+    <div class="slider-row">
+      <button class="play-btn" id="play-btn" onclick="togglePlay()">&#9654; Play</button>
+      <input type="range" id="time-slider" min="0" max="180" step="0.1" value="0"
+             oninput="onSlider(this.value)" />
+    </div>
+    <div class="speed-row">
+      Speed:
+      <select id="speed-sel" onchange="onSpeedChange(this.value)">
+        <option value="0.5">0.5×</option>
+        <option value="1">1×</option>
+        <option value="2" selected>2×</option>
+        <option value="4">4×</option>
+      </select>
+    </div>
+    <div id="tl-status"></div>
+  </div>
+
+  <!-- Flow legend -->
+  <div id="legend-flow">
+    <h2>Riders per street</h2>
+    <div class="legend-ramp" id="flow-ramp"></div>
+    <div class="legend-labels"><span>Fewer</span><span>More</span></div>
+    <div class="palette-switcher" id="palette-switcher"></div>
+  </div>
+
+  <!-- Layer toggles -->
+  <label class="layer-toggle">
+    <input type="checkbox" id="toggle-stations" onchange="onToggleStations(this.checked)" />
+    Show bike stations
+  </label>
+
+  <!-- Stats -->
+  <div id="stats-area" style="margin-top:14px"></div>
+
+  <div class="footer">
+    <p style="margin-bottom:6px">
+      Data: <a href="https://citibikenyc.com/system-data">CitiBike System Data</a>,
+      <a href="https://www.openstreetmap.org">OpenStreetMap</a>,
+      <a href="https://data.cityofnewyork.us">NYC Open Data</a>
+    </p>
+    <p>&copy; Artem Pankin 2026 &nbsp;·&nbsp;
+      <a href="https://github.com/temapankin/CitiBikeProjects">GitHub</a>
+    </p>
+  </div>
+</div>
+
+<!-- ── Map ────────────────────────────────────────────────────────────────── -->
+<div id="map-container">
+  <div id="map"></div>
+  <div id="tooltip"></div>
+  <div id="loading">Loading data…</div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════════════════
+// Constants
+// ════════════════════════════════════════════════════════════════════════════
+
+const DATA_FLOWS          = "data/edge_flows.geojson";
+const DATA_STATIONS       = "data/stations.geojson";
+const DATA_TL_META        = "data/timelapse_meta.json";
+const DATA_TRIPS_DIR      = "data/trips";   // day=YYYY-MM-DD/part-0.parquet (geometry inline)
+
+// The exported t0 column is in "anim seconds" (whole period scaled to 0..180).
+// We run the clock in REAL seconds since period_start instead, so each bike travels
+// its route at a believable pace. ANIM_DURATION_S is the scale the data was built at.
+const ANIM_DURATION_S = 180;
+
+// Playback pace. The clock advances SIM_SPEED_BASE real-seconds per wall-second at 1×
+// (the Speed dropdown multiplies this). Lower = slower & more legible + more time to
+// stream data. 120 → 2 real-min/sec, so one day plays in ~12 min; scrub to travel the summer.
+const SIM_SPEED_BASE = 120;
+
+// Each trip's route is traversed over a duration derived from its length at bike speed
+// (computed in the worker), so only a short lit segment moves along the path — not the
+// whole route at once. TRAIL_S is the comet tail length, in REAL seconds.
+const TRAIL_S  = 90;     // ~1.5 min tail behind the moving head
+const WINDOW_S = 1800;   // real seconds buffered ahead of the playhead (~30 min)
+
+// Density cap: trips are bucketed 0..SAMP_BUCKETS-1 at export time; we load `samp < DENSITY_K`.
+// Concurrent riders are naturally ~1000 at peak, so full density is cheap (short segments).
+const SAMP_BUCKETS = 256;
+const DENSITY_K    = 256; // 256/256 = all trips
+
+// Set once tlMeta loads: total span (s) and seconds-per-anim-second (data t0 → real s).
+let SPAN_SEC     = ANIM_DURATION_S;
+let SEC_PER_ANIM = 1;
+
+// Flow colour ramps (low → high). All run through flowColor()'s dynamic alpha and the
+// additive blend in FLOW_LAYER_PARAMS, so every palette glows the same on the dark
+// basemap — only the hues change. Sticking with Magma for now; uncomment the others
+// to bring back the in-map swatch switcher (it auto-shows when >1 palette exists).
+const PALETTES = {
+  magma: { label: "Magma", stops: [
+    [12, 6, 38], [78, 8, 120], [170, 18, 140], [240, 46, 92], [255, 120, 36], [255, 232, 130],
+  ]},
+  // viridis: { label: "Viridis", stops: [
+  //   [68, 1, 84], [59, 82, 139], [33, 144, 141], [93, 201, 99], [253, 231, 37],
+  // ]},
+  // cividis: { label: "Cividis", stops: [
+  //   [0, 32, 77], [49, 68, 107], [102, 105, 112], [166, 157, 117], [255, 233, 69],
+  // ]},
+  // ember: { label: "Ember", stops: [
+  //   [43, 10, 10], [139, 26, 26], [232, 84, 27], [255, 159, 28], [255, 227, 163],
+  // ]},
+  // tealamber: { label: "Teal→Amber", stops: [
+  //   [6, 48, 58], [14, 124, 134], [63, 191, 159], [200, 212, 78], [255, 176, 32],
+  // ]},
+};
+
+let currentPalette = "magma";
+let paletteVersion = 0;           // bumped on switch so deck.gl recomputes colours
+let FLOW_RAMP = PALETTES[currentPalette].stops;
+
+function flowColor(n) {
+  const t = Math.max(0, Math.min(1, n));
+  const seg = (FLOW_RAMP.length - 1) * t;
+  const i = Math.floor(seg);
+  const f = seg - i;
+  const a = FLOW_RAMP[Math.min(i,   FLOW_RAMP.length - 1)];
+  const b = FLOW_RAMP[Math.min(i+1, FLOW_RAMP.length - 1)];
+  return [
+    a[0] + (b[0]-a[0])*f,
+    a[1] + (b[1]-a[1])*f,
+    a[2] + (b[2]-a[2])*f,
+    Math.round(45 + t * 190),
+  ];
+}
+
+function flowNorm(trips) {
+  const lo = Math.log1p(minFlow), hi = Math.log1p(maxFlow);
+  return Math.max(0, Math.min(1, (Math.log1p(trips) - lo) / (hi - lo)));
+}
+
+const TRAIL_COLOR     = [40, 100, 255];  // deep electric blue; additive blend makes overlaps glow
+
+// ════════════════════════════════════════════════════════════════════════════
+// State
+// ════════════════════════════════════════════════════════════════════════════
+
+let currentView  = "flow";
+let flowData     = null;
+let stationsData = null;
+let tlMeta       = null;
+let maxFlow      = 1;
+let minFlow      = 0;
+let GLOBAL_MAX   = 1;   // full-dataset extent; fallback when little is on screen
+let GLOBAL_MIN   = 0;
+let maxStationTrips   = 1;
+let GLOBAL_STATION_MAX = 1;
+let showStations = false;
+
+// Animation state
+let animTime  = 0;
+let animSpeed = 2;   // default 2× (matches the Speed dropdown)
+let playing   = false;
+let lastRaf   = null;
+let prevTimestamp = null;
+let deckgl    = null;
+
+// ════════════════════════════════════════════════════════════════════════════
+// Map initialisation
+// ════════════════════════════════════════════════════════════════════════════
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://basemaps.cartocdn.com/gl/dark-matter-gl-style/style.json",
+  center: [-73.97, 40.73],
+  zoom: 12,
+  minZoom: 10,
+  maxZoom: 18,
+  antialias: true,
+});
+
+map.addControl(new maplibregl.NavigationControl(), "top-right");
+
+// Track zoom so line widths can grow as the viewer zooms in — otherwise thin,
+// low-traffic lines stay hairline-thin and vanish at street level.
+let currentZoom = map.getZoom();
+let zoomRerenderQueued = false;
+map.on("zoom", () => {
+  currentZoom = map.getZoom();
+  // Timelapse trails re-scale live (cheap, few features). Flow lines re-grade on
+  // moveend instead, so we don't re-tesselate 28k edges every drag frame.
+  if (currentView !== "timelapse" || !activeBuffer || zoomRerenderQueued) return;
+  zoomRerenderQueued = true;
+  requestAnimationFrame(() => {
+    zoomRerenderQueued = false;
+    if (currentView === "timelapse" && activeBuffer) updateTripsLayer();
+  });
+});
+
+// Re-grade the flow scale to the new viewport once panning/zooming settles.
+map.on("moveend", () => {
+  if (deckgl && currentView === "flow") renderFlowView();
+});
+
+// Width scaling vs. zoom: ~1× at z12, growing toward street level, clamped so the
+// busiest corridors don't bloat. Min pixels also lifts with zoom to keep the
+// faintest lines visible.
+const ZOOM_REF = 12;
+function zoomWidthScale() {
+  // Gentle uniform growth with zoom. Kept moderate so it doesn't push every line
+  // to the max-pixel cap — that would flatten the per-street width differences
+  // that recomputeClassification() re-grades for the current view.
+  return Math.max(0.7, Math.min(3.5, Math.pow(1.35, currentZoom - ZOOM_REF)));
+}
+function zoomMinPixels(base, max) {
+  const t = Math.max(0, Math.min(1, (currentZoom - ZOOM_REF) / 4)); // 0 at z12 → 1 at z16+
+  return base + (max - base) * t;
+}
+
+// Re-grade the colour/width scale to the edges currently in view. Zooming into a
+// quiet neighbourhood like Ridgewood promotes its own busiest streets to full
+// colour and width instead of leaving everything at the bottom of the city scale.
+// Falls back to the full-dataset extent when almost nothing is on screen.
+function recomputeClassification() {
+  if (!flowData) return;
+  const b = map.getBounds();
+  const w = b.getWest(), e = b.getEast(), s = b.getSouth(), n = b.getNorth();
+  let lo = Infinity, hi = -Infinity, count = 0;
+  for (const f of flowData.features) {
+    const bb = f._bbox;
+    if (!bb || bb[2] < w || bb[0] > e || bb[3] < s || bb[1] > n) continue; // off-screen
+    const t = f.properties.total_trips || 1;
+    if (t < lo) lo = t;
+    if (t > hi) hi = t;
+    count++;
+  }
+  if (count >= 2 && hi > lo) { minFlow = lo; maxFlow = hi; }
+  else { minFlow = GLOBAL_MIN; maxFlow = GLOBAL_MAX; }
+
+  if (stationsData) {
+    let stMax = 0, stCount = 0;
+    for (const f of stationsData.features) {
+      const [lng, lat] = f.geometry.coordinates;
+      if (lng < w || lng > e || lat < s || lat > n) continue;
+      const t = f.properties.trips_per_station || 0;
+      if (t > stMax) stMax = t;
+      stCount++;
+    }
+    maxStationTrips = stCount >= 1 && stMax > 0 ? stMax : GLOBAL_STATION_MAX;
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// deck.gl overlay
+// ════════════════════════════════════════════════════════════════════════════
+
+map.on("load", () => {
+  // Hide the basemap's place/area name labels (neighbourhoods, boroughs, cities,
+  // states…) so they don't compete with the flow lines. The OpenMapTiles "place"
+  // source-layer covers all of them.
+  for (const layer of map.getStyle().layers) {
+    if (layer["source-layer"] === "place") map.setLayoutProperty(layer.id, "visibility", "none");
+  }
+
+  // ── deck.gl overlay ──
+  deckgl = new deck.MapboxOverlay({
+    interleaved: false,
+    layers: [],
+    getTooltip: ({ object }) => {
+      if (!object) return null;
+      const p = object.properties || object;
+      if (p.total_trips !== undefined) {
+        return { html: `<b>${p.total_trips.toLocaleString()}</b> trips`, style: {} };
+      }
+      if (p.station_name) {
+        return {
+          html: `<b>${p.station_name}</b><br>${(p.trips_per_station||0).toLocaleString()} trips<br>${p.borough||""}`,
+          style: {},
+        };
+      }
+      return null;
+    },
+  });
+  map.addControl(deckgl);
+  loadData();
+});
+
+// ════════════════════════════════════════════════════════════════════════════
+// Data loading
+// ════════════════════════════════════════════════════════════════════════════
+
+async function loadData() {
+  setLoading(true);
+  try {
+    [flowData, stationsData, tlMeta] = await Promise.all([
+      fetch(DATA_FLOWS).then(r => r.json()),
+      fetch(DATA_STATIONS).then(r => r.json()),
+      fetch(DATA_TL_META).then(r => r.json()).catch(() => null),
+    ]);
+
+    // Dataset extent + a cached bbox per edge, so we can re-grade the colour/width
+    // scale to whatever is currently on screen (see recomputeClassification).
+    let lo = Infinity, hi = -Infinity;
+    for (const f of flowData.features) {
+      const t = f.properties.total_trips || 1;
+      if (t < lo) lo = t;
+      if (t > hi) hi = t;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (const [x, y] of f.geometry.coordinates) {
+        if (x < x0) x0 = x; if (y < y0) y0 = y;
+        if (x > x1) x1 = x; if (y > y1) y1 = y;
+      }
+      f._bbox = [x0, y0, x1, y1];
+    }
+    GLOBAL_MIN = lo; GLOBAL_MAX = hi;
+    minFlow = lo; maxFlow = hi;
+
+    GLOBAL_STATION_MAX = Math.max(1, ...stationsData.features.map(f => f.properties.trips_per_station || 0));
+    maxStationTrips = GLOBAL_STATION_MAX;
+
+    // Establish the real-time clock from the data period, and size the slider to it.
+    if (tlMeta) {
+      SPAN_SEC = (new Date(tlMeta.period_end) - new Date(tlMeta.period_start)) / 1000;
+      SEC_PER_ANIM = SPAN_SEC / (tlMeta.anim_duration_s || ANIM_DURATION_S);
+      const slider = document.getElementById("time-slider");
+      slider.min = 0; slider.max = SPAN_SEC; slider.step = 60;  // 1-min granularity
+    }
+
+    buildFlowRamp();
+    buildPaletteSwitcher();
+    showStats();
+    renderView();
+  } catch (e) {
+    document.getElementById("loading").textContent =
+      "Couldn't load the map data.";
+    console.error(e);
+    return;
+  }
+  setLoading(false);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Flow layer helpers (deck.gl GeoJSON path)
+// ════════════════════════════════════════════════════════════════════════════
+
+const FLOW_LAYER_PARAMS = {
+  parameters: {
+    blendColorOperation: "add",
+    blendColorSrcFactor: "src-alpha",
+    blendColorDstFactor: "one",
+    blendAlphaSrcFactor: "one",
+    blendAlphaDstFactor: "one",
+  },
+};
+
+function flowLayerLineWidth(f) {
+  const n = flowNorm(f.properties?.total_trips || 0);
+  return 0.3 + Math.pow(n, 1.6) * 4.5;
+}
+function flowLayerLineColor(f) {
+  return flowColor(flowNorm(f.properties?.total_trips || 0));
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Rendering
+// ════════════════════════════════════════════════════════════════════════════
+
+function renderView() {
+  if (!deckgl) return;
+  if (currentView === "flow") {
+    renderFlowView();
+  } else {
+    renderTimelapseView();
+  }
+}
+
+function renderFlowView() {
+  recomputeClassification();
+  const pathLayer = new deck.GeoJsonLayer({
+    id: "edge-flows",
+    data: flowData,
+    pickable: true,
+    stroked: false,
+    filled: false,
+    lineWidthUnits: "pixels",
+    widthScale: zoomWidthScale(),
+    lineWidthMinPixels: zoomMinPixels(1, 2.5),
+    lineWidthMaxPixels: 18,
+    capRounded: true,
+    jointRounded: true,
+    getLineWidth: flowLayerLineWidth,
+    getLineColor: flowLayerLineColor,
+    ...FLOW_LAYER_PARAMS,
+    updateTriggers: { getLineWidth: [minFlow, maxFlow], getLineColor: [minFlow, maxFlow, paletteVersion] },
+  });
+  deckgl.setProps({ layers: [pathLayer, buildStationsLayer()] });
+}
+
+function renderTimelapseView() {
+  if (!activeBuffer) {
+    deckgl.setProps({ layers: [buildStationsLayer()] });
+    return;
+  }
+  updateTripsLayer();
+}
+
+function buildStationsLayer() {
+  if (!stationsData || !showStations)
+    return new deck.ScatterplotLayer({ id: "stations-empty", data: [] });
+  return new deck.GeoJsonLayer({
+    id: "stations",
+    data: stationsData,
+    pickable: true,
+    pointRadiusUnits: "pixels",
+    getPointRadius: f => {
+      const n = (f.properties.trips_per_station || 0) / maxStationTrips;
+      return Math.max(2, 2 + n * 10) * zoomWidthScale();
+    },
+    updateTriggers: { getPointRadius: [currentZoom, maxStationTrips] },
+    // Cool accent blue (matches the UI) complements Magma's warm purple→amber
+    // flows and reads more clearly than the old amber dots.
+    getFillColor: [126, 200, 255, 215],
+    getLineColor: [0, 0, 0, 0],
+    stroked: false,
+  });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// View switching
+// ════════════════════════════════════════════════════════════════════════════
+
+function setView(view) {
+  currentView = view;
+
+  document.getElementById("btn-flow").classList.toggle("active", view === "flow");
+  document.getElementById("btn-anim").classList.toggle("active", view === "timelapse");
+  document.getElementById("view-desc-flow").style.display = view === "flow" ? "" : "none";
+  document.getElementById("view-desc-anim").style.display = view === "timelapse" ? "" : "none";
+  document.getElementById("timelapse-controls").classList.toggle("visible", view === "timelapse");
+  document.getElementById("legend-flow").style.display = view === "flow" ? "" : "none";
+  const inviewChip = document.getElementById("chip-inview");
+  if (inviewChip) {
+    inviewChip.style.display = view === "timelapse" ? "" : "none";
+    if (view === "timelapse" && !activeBuffer) setTlWindowCount("—");
+  }
+
+  if (view === "flow") {
+    stopAnimation();
+    renderFlowView();
+  } else {
+    renderTimelapseView();
+    // Kick off DuckDB init + first window load if not already started
+    if (!tlInitStarted) {
+      tlInitStarted = true;
+      setTlStatus("Starting up…");
+      loadWindow(animTime);
+    } else if (!activeBuffer) {
+      loadWindow(animTime);
+    }
+  }
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Animation loop
+// ════════════════════════════════════════════════════════════════════════════
+
+let refetchTick = 0;
+
+function animFrame(ts) {
+  if (!playing) return;
+  if (prevTimestamp !== null) {
+    const dtMs = ts - prevTimestamp;
+    // Advance the real-time clock: SIM_SPEED_BASE real-seconds per wall-second × speed.
+    animTime = (animTime + (dtMs / 1000) * SIM_SPEED_BASE * animSpeed) % SPAN_SEC;
+  }
+  prevTimestamp = ts;
+
+  document.getElementById("time-slider").value = animTime;
+  updateTimeDisplay();
+  updateTripsLayer();
+
+  // Check prefetch roughly every second
+  refetchTick++;
+  if (refetchTick % 60 === 0) maybeRefetch();
+
+  lastRaf = requestAnimationFrame(animFrame);
+}
+
+function togglePlay() {
+  playing = !playing;
+  document.getElementById("play-btn").textContent = playing ? "⏸ Pause" : "▶ Play";
+  if (playing) {
+    prevTimestamp = null;
+    lastRaf = requestAnimationFrame(animFrame);
+  } else {
+    if (lastRaf) cancelAnimationFrame(lastRaf);
+  }
+}
+
+function stopAnimation() {
+  playing = false;
+  document.getElementById("play-btn").textContent = "▶ Play";
+  if (lastRaf) cancelAnimationFrame(lastRaf);
+}
+
+function onSlider(val) {
+  animTime = parseFloat(val);
+  updateTimeDisplay();
+  // If scrubbed outside current buffer, reset and re-fetch
+  if (animTime < bufT0 + TRAIL_S || animTime > bufT1 - WINDOW_S / 2) {
+    activeBuffer = null;
+    bufT0 = bufT1 = -999;
+    fetchAbortFlag++;
+    fetchInFlight = false;
+    if (currentView === "timelapse") {
+      renderTimelapseView();
+      loadWindow(animTime);
+    }
+  } else if (currentView === "timelapse") {
+    updateTripsLayer();
+  }
+}
+
+function onSpeedChange(val) {
+  animSpeed = parseFloat(val);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// DuckDB-WASM – streaming timelapse
+// ════════════════════════════════════════════════════════════════════════════
+
+let _duckDB       = null;
+let _duckConn     = null;
+let tlInitStarted = false;
+let loadedDays    = new Set();   // days whose parquet bytes are registered with DuckDB
+
+let activeBuffer  = null;
+let bufT0 = -999, bufT1 = -999;
+let fetchInFlight = false;
+let fetchAbortFlag = 0;
+
+// Off-main-thread geometry decoder + buffer builder (trip-processor.worker.js).
+let _procWorker = null;
+let _procSeq    = 0;
+const _procPending = new Map();   // id → resolve fn
+
+function getProcWorker() {
+  if (_procWorker) return _procWorker;
+  _procWorker = new Worker("trip-processor.worker.js");
+  _procWorker.onmessage = (e) => {
+    const { id } = e.data;
+    const resolve = _procPending.get(id);
+    if (resolve) { _procPending.delete(id); resolve(e.data); }
+  };
+  return _procWorker;
+}
+
+// Send a window's columns to the worker; resolves with the deck.gl binary buffers.
+// t0 is each trip's real-time start (seconds); the worker derives traversal duration
+// from route length, so no dur column is needed.
+function processWindow(geoms, t0) {
+  const worker = getProcWorker();
+  const id = ++_procSeq;
+  return new Promise((resolve) => {
+    _procPending.set(id, resolve);
+    // Transfer the typed-array buffer (zero-copy); geoms is a plain string array.
+    worker.postMessage({ id, geoms, t0 }, [t0.buffer]);
+  });
+}
+
+async function initDuckDB() {
+  if (_duckConn) return _duckConn;
+
+  // Dynamic import: loads DuckDB-WASM only when timelapse tab is first opened.
+  // @latest resolves to the current stable release on jsDelivr.
+  // selectBundle picks the eh (exception-handling) build on GitHub Pages since
+  // SharedArrayBuffer is unavailable without COOP/COEP headers.
+  const duckdb = await import("https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@latest/+esm");
+  const BUNDLES = duckdb.getJsDelivrBundles();
+  const bundle  = await duckdb.selectBundle(BUNDLES);
+
+  const workerBlob = new Blob(
+    [`importScripts("${bundle.mainWorker}");`],
+    { type: "text/javascript" }
+  );
+  const workerUrl = URL.createObjectURL(workerBlob);
+  const worker = new Worker(workerUrl);
+  const db = new duckdb.AsyncDuckDB(new duckdb.VoidLogger(), worker);
+  await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  URL.revokeObjectURL(workerUrl);
+
+  _duckDB   = db;
+  _duckConn = await db.connect();
+  return _duckConn;
+}
+
+// Fetch a day's parquet bytes and register them with DuckDB. Returns true on success.
+// Per-day files are small (~7 MB, geometry inline) and the browser HTTP-caches them,
+// so re-visiting a time range is cheap even after the buffer is evicted (see loadWindow).
+// A missing day (e.g. a window edge outside the data period) is skipped silently.
+async function ensureDayLoaded(dayStr) {
+  if (loadedDays.has(dayStr)) return true;
+  const url = `${DATA_TRIPS_DIR}/day=${dayStr}/part-0.parquet`;
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) return false;
+    const buf = await resp.arrayBuffer();
+    await _duckDB.registerFileBuffer(`trips_${dayStr}.parquet`, new Uint8Array(buf));
+    loadedDays.add(dayStr);
+    return true;
+  } catch (_) { return false; }
+}
+
+// Drop registered day buffers no longer needed, to cap memory at roughly one window.
+async function evictDaysExcept(keep) {
+  const keepSet = new Set(keep);
+  for (const d of [...loadedDays]) {
+    if (keepSet.has(d)) continue;
+    try { await _duckDB.dropFile(`trips_${d}.parquet`); } catch (_) {}
+    loadedDays.delete(d);
+  }
+}
+
+function animToDate(t) {
+  if (!tlMeta) return new Date();
+  const tMin = new Date(tlMeta.period_start).getTime();
+  // t is real seconds since period_start.
+  return new Date(tMin + Math.max(0, Math.min(SPAN_SEC, t)) * 1000);
+}
+
+function getOverlappingDays(t0, t1) {
+  const d0 = animToDate(t0);
+  const d1 = animToDate(t1);
+  const days = [];
+  const cur = new Date(d0);
+  cur.setHours(0, 0, 0, 0);
+  while (cur <= d1) {
+    days.push(cur.toISOString().slice(0, 10));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return days;
+}
+
+async function loadWindow(centerT) {
+  const myFlag = ++fetchAbortFlag;
+  fetchInFlight = true;
+
+  try {
+    setTlStatus("Starting up…");
+    const conn = await initDuckDB();
+    if (myFlag !== fetchAbortFlag) return;
+
+    // Window bounds in REAL seconds (the clock's units).
+    const qT0 = Math.max(0, centerT - TRAIL_S - WINDOW_S);
+    const qT1 = Math.min(SPAN_SEC, centerT + WINDOW_S);
+    const days = getOverlappingDays(qT0, qT1);
+
+    // Fetch + register the overlapping day files (cached; missing days skipped).
+    setTlStatus(`Loading ${days.length} day(s)…`);
+    const flags = await Promise.all(days.map(d => ensureDayLoaded(d)));
+    if (myFlag !== fetchAbortFlag) return;
+    const availDays = days.filter((_, i) => flags[i]);
+    if (availDays.length === 0) {
+      setTlStatus("No trips here.");
+      setLoading(false);
+      return;
+    }
+    // Free day buffers outside this window so memory stays ~one window's worth.
+    await evictDaysExcept(availDays);
+
+    setTlStatus("Loading…");
+    // No JOIN: geometry is embedded as polyline6. The data t0 is in anim-seconds, so
+    // filter with the window converted to anim-seconds and return t0 scaled to REAL
+    // seconds (× SEC_PER_ANIM) for the clock. The worker derives duration from length.
+    const fileList = availDays.map(d => `'trips_${d}.parquet'`).join(", ");
+    const aT0 = qT0 / SEC_PER_ANIM, aT1 = qT1 / SEC_PER_ANIM;
+    const sql = `
+      SELECT t0 * ${SEC_PER_ANIM} AS t0, geom
+      FROM read_parquet([${fileList}])
+      WHERE t0 BETWEEN ${aT0} AND ${aT1} AND samp < ${DENSITY_K}
+      ORDER BY t0
+    `;
+
+    const arrowTable = await conn.query(sql);
+    if (myFlag !== fetchAbortFlag) return;
+
+    // Extract columns into the shapes the worker expects (geoms as strings, t0 as a
+    // transferable Float32Array of real-time start seconds).
+    const n = arrowTable.numRows;
+    if (n === 0) { setTlStatus("No trips here."); setLoading(false); return; }
+    const geomVec = arrowTable.getChild("geom");
+    const t0Vec   = arrowTable.getChild("t0");
+    const geoms = new Array(n);
+    const t0arr = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      geoms[i]  = geomVec.get(i);
+      t0arr[i]  = Number(t0Vec.get(i));
+    }
+
+    setTlStatus("Drawing…");
+    const { length, startIndices, positions, timestamps } = await processWindow(geoms, t0arr);
+    if (myFlag !== fetchAbortFlag) return;
+
+    if (length > 0) {
+      activeBuffer = {
+        length,
+        startIndices,
+        attributes: {
+          getPath:       { value: positions,  size: 2 },
+          getTimestamps: { value: timestamps, size: 1 },
+        },
+      };
+      bufT0 = qT0;
+      bufT1 = qT1;
+      setTlWindowCount(length);
+      setTlStatus("");
+    } else {
+      setTlStatus("No trips here.");
+    }
+
+    setLoading(false);
+    if (currentView === "timelapse") updateTripsLayer();
+
+  } catch (e) {
+    console.error("loadWindow error:", e);
+    setTlStatus("Error: " + e.message);
+    setLoading(false);
+  } finally {
+    if (myFlag === fetchAbortFlag) fetchInFlight = false;
+  }
+}
+
+function maybeRefetch() {
+  if (fetchInFlight) return;
+  // Reload only when the playhead nears the leading edge of the buffer (or was
+  // scrubbed back past the trailing edge) — not every check — so we don't refetch
+  // every second during playback.
+  const needFetch =
+    activeBuffer === null ||
+    animTime - TRAIL_S < bufT0 ||
+    animTime > bufT1 - WINDOW_S * 0.4;
+  if (needFetch) loadWindow(animTime);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// TripsLayer update (called every animation frame)
+// ════════════════════════════════════════════════════════════════════════════
+
+function updateTripsLayer() {
+  if (!deckgl || !activeBuffer) return;
+  const tripsLayer = new deck.TripsLayer({
+    id: "trips",
+    data: activeBuffer,
+    getColor: TRAIL_COLOR,
+    opacity: 0.6,
+    widthMinPixels: zoomMinPixels(1.5, 3),
+    widthMaxPixels: zoomMinPixels(4, 10),
+    capRounded: true,
+    jointRounded: true,
+    trailLength: TRAIL_S,
+    currentTime: animTime,
+    fadeTrail: true,
+    shadowEnabled: false,
+    // Additive blending: overlapping trails sum toward a bright blue-white glow on the
+    // dark basemap — the same look as the flows layer.
+    ...FLOW_LAYER_PARAMS,
+  });
+  deckgl.setProps({ layers: [tripsLayer, buildStationsLayer()] });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Time display
+// ════════════════════════════════════════════════════════════════════════════
+
+function updateTimeDisplay() {
+  // Real-time clock pace makes time-of-day meaningful — show date + HH:MM.
+  const dt = animToDate(animTime);
+  document.getElementById("time-display").textContent =
+    dt.toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric",
+                                 hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Helpers
+// ════════════════════════════════════════════════════════════════════════════
+
+function onToggleStations(checked) {
+  showStations = checked;
+  renderView();
+}
+
+function buildFlowRamp() {
+  const ramp = document.getElementById("flow-ramp");
+  ramp.innerHTML = "";
+  FLOW_RAMP.forEach(([r,g,b]) => {
+    const div = document.createElement("div");
+    div.style.cssText = `flex:1; background:rgb(${r},${g},${b})`;
+    ramp.appendChild(div);
+  });
+}
+
+function buildPaletteSwitcher() {
+  const host = document.getElementById("palette-switcher");
+  if (!host) return;
+  host.innerHTML = "";
+  // Only worth showing when there's a choice to make.
+  if (Object.keys(PALETTES).length < 2) { host.style.display = "none"; return; }
+  host.style.display = "";
+  for (const [key, pal] of Object.entries(PALETTES)) {
+    const btn = document.createElement("div");
+    btn.className = "palette-swatch" + (key === currentPalette ? " active" : "");
+    btn.title = pal.label;
+    btn.onclick = () => setPalette(key);
+    const stops = pal.stops.map(([r,g,b]) => `rgb(${r},${g},${b})`).join(", ");
+    btn.innerHTML =
+      `<div class="ramp" style="background:linear-gradient(90deg, ${stops})"></div>` +
+      `<span class="name">${pal.label}</span>`;
+    host.appendChild(btn);
+  }
+}
+
+function setPalette(key) {
+  if (!PALETTES[key]) return;
+  currentPalette = key;
+  FLOW_RAMP = PALETTES[key].stops;
+  paletteVersion++;
+  buildFlowRamp();
+  buildPaletteSwitcher();
+  if (currentView === "flow") renderFlowView();
+}
+
+function showStats() {
+  if (!flowData || !stationsData) return;
+  const totalEdges    = flowData.features.length;
+  const totalStations = stationsData.features.length;
+  const totalTrips    = stationsData.features.reduce((s,f) => s + (f.properties.trips_per_station||0), 0);
+  const tlTrips       = tlMeta ? tlMeta.n_trips.toLocaleString() : "—";
+  document.getElementById("stats-area").innerHTML = `
+    <div class="stat-chip">Street segments: <span>${totalEdges.toLocaleString()}</span></div>
+    <div class="stat-chip">Stations: <span>${totalStations.toLocaleString()}</span></div>
+    <div class="stat-chip">Total trips: <span>${tlTrips}</span></div>
+    <div class="stat-chip" id="chip-inview" style="display:none">Trips in view: <span id="tl-window-count">—</span></div>
+  `;
+}
+
+function setTlWindowCount(n) {
+  const el = document.getElementById("tl-window-count");
+  if (el) el.textContent = (typeof n === "number") ? n.toLocaleString() : n;
+}
+
+function setLoading(show) {
+  document.getElementById("loading").classList.toggle("hidden", !show);
+}
+
+function setTlStatus(msg) {
+  const el = document.getElementById("tl-status");
+  if (el) el.textContent = msg;
+}
+</script>
+</body>
+</html>
