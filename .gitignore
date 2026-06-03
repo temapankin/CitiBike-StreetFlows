@@ -10,8 +10,6 @@ postgres.log
 data/raw/
 data/parquet/
 
-web/data/trips_timelapse.json
-
 # Makefile state stamps
 .db_loaded
 .route_done
@@ -35,3 +33,4 @@ __pycache__/
 .vscode/
 .idea/
 *.swp
+docs/data/trips_timelapse.json

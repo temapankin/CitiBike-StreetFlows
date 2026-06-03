@@ -9,7 +9,7 @@ Replaces the naive SUM(total_trips) in 08_clean_network.py with two alternatives
   max    – MAX(total_trips) per centerline segment.
             Dead simple; understates bidirectional volume on split carriageways.
 
-Both files are written to web/data/ for side-by-side comparison on the map.
+Both files are written to docs/data/ for side-by-side comparison on the map.
 """
 
 import os
@@ -26,7 +26,7 @@ DB_URL = (
     f"@{os.environ['PGHOST']}:{os.environ['PGPORT']}/{os.environ['PGDATABASE']}"
 )
 engine = create_engine(DB_URL)
-OUT = Path("web/data")
+OUT = Path("docs/data")
 
 MAX_SNAP_M = 30
 

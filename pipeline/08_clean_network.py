@@ -6,7 +6,7 @@ Usage:
   python pipeline/08_clean_network.py           # full run
   python pipeline/08_clean_network.py --sample  # Flatiron/Broadway bbox only
 
---sample writes web/data/edge_flows_sample.geojson for A/B visual inspection
+--sample writes docs/data/edge_flows_sample.geojson for A/B visual inspection
 against the previous v1 sample before running the full pipeline.
 Full run builds nyc_centerline + clean_flows tables; run 07_export.py after.
 
@@ -39,7 +39,7 @@ _CENTERLINE_CANDIDATES = [
 ]
 CENTERLINE_PATH = next((p for p in _CENTERLINE_CANDIDATES if p.exists()), _CENTERLINE_CANDIDATES[0])
 
-OUT = Path("web/data")
+OUT = Path("docs/data")
 OUT.mkdir(parents=True, exist_ok=True)
 
 SAMPLE_BBOX = (-73.995, 40.735, -73.982, 40.748)
@@ -136,7 +136,7 @@ def run_sample(bbox):
     print(f"  Trips: {clean_trips:,} / {orig_trips:,}  ({dropped_pct:.1f}% dropped by {MAX_SNAP_M}m guard)")
     if skipped:
         print(f"  ({skipped} flow edges had no centerline within {MAX_SNAP_M}m)")
-    print("\nSample done. Eyeball web/data/edge_flows_sample.geojson in the map.")
+    print("\nSample done. Eyeball docs/data/edge_flows_sample.geojson in the map.")
 
 
 def run_full():

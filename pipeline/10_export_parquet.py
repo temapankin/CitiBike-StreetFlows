@@ -6,7 +6,7 @@ client never downloads a separate routes file and never runs a client-side JOIN.
 Files are ordered by t0 with small row groups, so DuckDB-WASM can satisfy a time
 window with a handful of HTTP range reads instead of a full-file download.
 
-Outputs (under web/data/):
+Outputs (under docs/data/):
   trips/day=YYYY-MM-DD/part-0.parquet
         columns: t0 REAL, dur REAL, geom VARCHAR (polyline6), samp UTINYINT
         ORDER BY t0, ROW_GROUP_SIZE 2048, COMPRESSION ZSTD
@@ -45,7 +45,7 @@ PGPASSWORD = os.environ.get("PGPASSWORD", "")
 DB_URL = f"postgresql://{PGUSER}:{PGPASSWORD}@{PGHOST}:{PGPORT}/{PGDATABASE}"
 engine = create_engine(DB_URL)
 
-OUT = Path("web/data")
+OUT = Path("docs/data")
 OUT.mkdir(parents=True, exist_ok=True)
 TRIPS_DIR = OUT / "trips"
 TRIPS_DIR.mkdir(parents=True, exist_ok=True)

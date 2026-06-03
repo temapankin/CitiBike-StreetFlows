@@ -1,8 +1,8 @@
 """
 Export data for the web map:
-  web/data/edge_flows.geojson   – street-level bike flow (aggregate, parallel edges merged)
-  web/data/stations.geojson     – stations sized by trip count
-  web/data/trips_timelapse.json – all summer trips; route geometries deduplicated
+  docs/data/edge_flows.geojson   – street-level bike flow (aggregate, parallel edges merged)
+  docs/data/stations.geojson     – stations sized by trip count
+  docs/data/trips_timelapse.json – all summer trips; route geometries deduplicated
 
 Environment variables:
   FLOW_TABLE    DB table to export as edge_flows.geojson (default: clean_flows).
@@ -35,7 +35,7 @@ DB_URL = (
 )
 engine = create_engine(DB_URL)
 
-OUT = Path("web/data")
+OUT = Path("docs/data")
 OUT.mkdir(parents=True, exist_ok=True)
 
 MAX_TRIPS = int(os.environ.get("MAX_TRIPS", "0")) or None  # 0/unset = unlimited

@@ -74,9 +74,9 @@ make serve                    # visit http://localhost:8000
 │   ├── 08_clean_network.py      snap OSM edges to CSCL geometry; sum flows
 │   ├── 08b_aggregate_variants.py   generate lwavg / max count-de-inflation variants
 │   ├── 09_timelapse.sql         materialise per-trip geometry + timestamps
-│   └── 10_export_parquet.py     write web/data/trips/day=*/part-0.parquet
+│   └── 10_export_parquet.py     write docs/data/trips/day=*/part-0.parquet
 │
-└── web/
+└── docs/
     ├── index.html               deck.gl + MapLibre dark map (two switchable views)
     ├── trip-processor.worker.js off-main-thread geometry decoder for timelapse
     ├── server.py                local dev server

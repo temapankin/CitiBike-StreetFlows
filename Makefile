@@ -6,8 +6,8 @@
 #   make db       – load + clean trips, build stations table
 #   make profile  – run feasibility probe (choose N for routing)
 #   make route    – build street network + run pgRouting
-#   make export   – write GeoJSON / timelapse JSON to web/data/
-#   make serve    – serve web/ on http://localhost:8000
+#   make export   – write GeoJSON / timelapse JSON to docs/data/
+#   make serve    – serve docs/ on http://localhost:8000
 #   make all      – data → db → profile → route → export
 
 SHELL := bash
@@ -98,12 +98,12 @@ clean-network: .clean_done
 
 # ─── export ────────────────────────────────────────────────────────────────────
 
-web/data/edge_flows.geojson: .clean_done
+docs/data/edge_flows.geojson: .clean_done
 	$(CONDA_ACTIVATE)
 	python pipeline/07_export.py
 
 .PHONY: export
-export: web/data/edge_flows.geojson
+export: docs/data/edge_flows.geojson
 
 # ─── centerline network (cscl_net build + routing) ────────────────────────────
 # Additive path: OSM pipeline is unchanged and still runnable via make route/export.
@@ -125,12 +125,12 @@ centerline-network: .cscl_net_done
 .PHONY: centerline-route
 centerline-route: .cscl_routed
 
-web/data/edge_flows_cl.geojson: .cscl_routed
+docs/data/edge_flows_cl.geojson: .cscl_routed
 	$(CONDA_ACTIVATE)
 	FLOW_TABLE=edge_flows_cl SKIP_TIMELAPSE=1 python pipeline/07_export.py
 
 .PHONY: centerline-export
-centerline-export: web/data/edge_flows_cl.geojson
+centerline-export: docs/data/edge_flows_cl.geojson
 
 # Count-de-inflation variants from OSM edge_flows (fallback, no reroute needed)
 .PHONY: aggregate-variants
@@ -156,22 +156,22 @@ timelapse: .timelapse_done
 
 # ─── vector tiles (PMTiles) ───────────────────────────────────────────────────
 
-web/data/edge_flows.pmtiles: web/data/edge_flows.geojson
+docs/data/edge_flows.pmtiles: docs/data/edge_flows.geojson
 	$(CONDA_ACTIVATE)
-	tippecanoe -o web/data/edge_flows.pmtiles \
+	tippecanoe -o docs/data/edge_flows.pmtiles \
 	  --minimum-zoom=10 --maximum-zoom=14 \
 	  --no-feature-limit --no-tile-size-limit \
-	  -l flows web/data/edge_flows.geojson
+	  -l flows docs/data/edge_flows.geojson
 
 .PHONY: tiles
-tiles: web/data/edge_flows.pmtiles
+tiles: docs/data/edge_flows.pmtiles
 
 # ─── web server ────────────────────────────────────────────────────────────────
 
 .PHONY: serve
 serve:
 	$(CONDA_ACTIVATE)
-	cd web && python server.py 8000
+	cd docs && python server.py 8000
 
 # ─── all ───────────────────────────────────────────────────────────────────────
 
