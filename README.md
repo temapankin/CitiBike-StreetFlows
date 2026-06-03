@@ -145,7 +145,8 @@ make serve                    # visit http://localhost:8000
 ### Routing scale
 
 Run `make profile` after loading data to see the actual numbers. Typical summer-2023 figures:
-- ~10.6 million trips, ~15,000 distinct OD pairs (directed)
+- ~10.6 million trips, ~938,000 distinct routed geometries, ~15,000 distinct OD pairs (directed)
+- Each OD pair is routed once; all trips sharing that pair reuse the same geometry
 - Top ~5,000 pairs cover ~90% of all trips
 - Routing all pairs takes ~30 min on a laptop (Apple Silicon)
 
