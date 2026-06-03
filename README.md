@@ -8,7 +8,7 @@ with two views: an aggregated bike-flow heatmap and an animated trip timelapse.
 
 ![Overall bike flow map](repo_screenshot.png)
 
-<video src="repo_video.mp4" controls width="100%"></video>
+<video src="https://github.com/user-attachments/assets/8d9b1227-bc2f-4d92-a650-bf30729adf00" controls width="100%"></video>
 
 ---
 
